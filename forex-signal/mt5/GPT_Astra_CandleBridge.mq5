@@ -74,13 +74,13 @@ void SendClosedBar()
    string payload = "{";
    payload += "\"symbol\":\"" + _Symbol + "\",";
    payload += "\"timeframe\":\"" + timeframe + "\",";
-   payload += "\"timestamp_epoch\":" + LongToString((long)closed_time) + ",";
+   payload += "\"timestamp_epoch\":" + IntegerToString((int)closed_time) + ",";
    payload += "\"server_time\":\"" + TimeToString(closed_time,TIME_DATE|TIME_SECONDS) + "\",";
    payload += "\"open\":" + DoubleToString(rates[1].open,digits) + ",";
    payload += "\"high\":" + DoubleToString(rates[1].high,digits) + ",";
    payload += "\"low\":" + DoubleToString(rates[1].low,digits) + ",";
    payload += "\"close\":" + DoubleToString(rates[1].close,digits) + ",";
-   payload += "\"tick_volume\":" + LongToString((long)rates[1].tick_volume) + ",";
+   payload += "\"tick_volume\":" + IntegerToString((int)rates[1].tick_volume) + ",";
    payload += "\"bid\":" + DoubleToString(tick.bid,digits) + ",";
    payload += "\"ask\":" + DoubleToString(tick.ask,digits) + ",";
    payload += "\"spread\":" + DoubleToString(spread,digits) + ",";
