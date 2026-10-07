@@ -35,4 +35,16 @@
 
    Then run the local signal/backtest command on that CSV. The MT5 bridge and gateway remain paper/data-only.
 
+To let the Agent consume the MT5 database continuously without a manual CSV export, run this in a second terminal:
+
+```bash
+uv run --project forex-signal forex-mt5-monitor \
+  --db forex-signal/data/mt5-candles.sqlite3 \
+  --symbol EURUSD --timeframe M15 \
+  --poll-seconds 10 \
+  --output-dir forex-signal/reports/mt5-monitor
+```
+
+Add `--gemini` only after setting `GEMINI_API_KEY` in that process environment. The monitor remains review/paper-only and does not invoke any MT5 order function.
+
 The Python gateway and MQL5 source have been statically reviewed here; MetaEditor compilation and WebRequest delivery must be verified on the user's MT5 installation. If FBS displays a symbol suffix (for example a spread/account variant), use the exact chart symbol in `--symbol` and the EA sends that name automatically.
