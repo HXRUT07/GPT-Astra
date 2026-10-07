@@ -1,0 +1,115 @@
+//@version=6
+indicator("SET Daily Stock Signal [Stage 1]", overlay = true)
+
+// Fixed strategy settings match the default Python StrategyConfig. The two
+// transaction-cost settings below must also match when comparing signal dates.
+const string STRATEGY_NAME = "EMA_Trend_Breakout_V1"
+const int WARMUP_BARS = 200
+const float MIN_REWARD_RISK = 2.0
+float commissionRate = input.float(0.001, "Commission rate per side (fraction)", minval = 0.0, maxval = 1.0, step = 0.0001)
+float slippageBps = input.float(10.0, "Adverse slippage per side (basis points)", minval = 0.0, maxval = 9999.0, step = 1.0)
+
+// Fail visibly rather than using the SET daily policy on another market/chart.
+if barstate.isfirst
+    if commissionRate >= 1.0
+        runtime.error("Commission rate must be less than 1, matching Python.")
+    if syminfo.prefix != "SET"
+        runtime.error("This stage-1 indicator requires a SET symbol.")
+    if not timeframe.isdaily or timeframe.multiplier != 1
+        runtime.error("This stage-1 indicator requires the 1D timeframe.")
+    if not chart.is_standard
+        runtime.error("Use standard price bars, not a synthetic chart type.")
+
+// Python seeds each EMA with its first complete period's arithmetic mean.
+// TradingView's built-in ta.ema uses a different starting seed.
+seededEma(float source, int period) =>
+    float initialMean = ta.sma(source, period)
+    float alpha = 2.0 / (period + 1.0)
+    float result = na
+    result := na(result[1]) ? initialMean : result[1] + alpha * (source - result[1])
+    result
+
+wilderRsi(float source, int period) =>
+    float change = ta.change(source)
+    float gain = ta.rma(math.max(change, 0.0), period)
+    float loss = ta.rma(math.max(-change, 0.0), period)
+    // Match Python's explicit neutral RSI convention for a flat history.
+    loss == 0.0 ? (gain == 0.0 ? 50.0 : 100.0) : 100.0 - 100.0 / (1.0 + gain / loss)
+
+float emaFast = seededEma(close, 20)
+float emaSlow = seededEma(close, 50)
+float emaTrend = seededEma(close, 200)
+float rsi14 = wilderRsi(close, 14)
+// [1] excludes the current signal bar from every historical reference window.
+float previous20High = ta.highest(high, 20)[1]
+float supportLevel = ta.lowest(low, 20)[1]
+float resistanceLevel = ta.highest(high, 60)[1]
+float previous20VolumeMean = ta.sma(volume, 20)[1]
+float volumeMultiple = previous20VolumeMean > 0.0 ? volume / previous20VolumeMean : na
+
+// Evaluate the crossover on every bar, including bars outside the signal gates.
+bool emaCross = ta.crossover(emaFast, emaSlow)
+bool breakout = close > previous20High
+bool warmedUp = bar_index + 1 >= WARMUP_BARS
+bool hasData = not na(emaTrend) and not na(rsi14) and not na(previous20High) and not na(supportLevel) and not na(resistanceLevel) and not na(volumeMultiple)
+bool technicalSignal = warmedUp and hasData and close > emaTrend and (emaCross or breakout) and volumeMultiple > 1.5 and rsi14 >= 50.0 and rsi14 <= 70.0
+
+// SL and TP are actual prior-bar levels. Never manufacture a 2R target.
+float stopLoss = supportLevel
+float takeProfit = resistanceLevel
+float grossRisk = close - stopLoss
+float grossReward = takeProfit - close
+float grossRewardRisk = grossRisk > 0.0 ? grossReward / grossRisk : na
+float slippage = slippageBps / 10000.0
+float estimatedEntry = close * (1.0 + slippage)
+float entryCost = estimatedEntry * (1.0 + commissionRate)
+float stopProceeds = stopLoss * (1.0 - slippage) * (1.0 - commissionRate)
+float targetProceeds = takeProfit * (1.0 - slippage) * (1.0 - commissionRate)
+float netRisk = entryCost - stopProceeds
+float netReward = targetProceeds - entryCost
+float netRewardRisk = netRisk > 0.0 ? netReward / netRisk : na
+bool validLevels = stopLoss > 0.0 and stopLoss < close and close < takeProfit and stopLoss < estimatedEntry and estimatedEntry < takeProfit
+bool riskQualified = validLevels and grossRewardRisk >= MIN_REWARD_RISK and netRewardRisk >= MIN_REWARD_RISK
+bool qualifiedSignal = barstate.isconfirmed and technicalSignal and riskQualified
+
+plot(emaFast, "EMA 20", color = color.teal)
+plot(emaSlow, "EMA 50", color = color.orange)
+plot(emaTrend, "EMA 200", color = color.gray)
+plot(supportLevel, "Prior 20-bar low / stop", color = color.new(color.red, 45))
+plot(resistanceLevel, "Prior 60-bar high / target", color = color.new(color.green, 45))
+plotshape(qualifiedSignal, title = "Qualified close-bar signal", style = shape.triangleup, location = location.belowbar, color = color.green, size = size.small)
+plot(grossRewardRisk, "Gross reward/risk", display = display.data_window)
+plot(netRewardRisk, "Net reward/risk", display = display.data_window)
+plot(volumeMultiple, "Volume multiple", display = display.data_window)
+plot(rsi14, "RSI 14", display = display.data_window)
+
+jsonNumber(float value) =>
+    str.tostring(value, "0.##########")
+
+jsonEscape(string value) =>
+    str.replace_all(str.replace_all(value, "\\", "\\\\"), "\"", "\\\"")
+
+if qualifiedSignal
+    string timestampUtc = str.format_time(time_close, "yyyy-MM-dd", "UTC") + "T" + str.format_time(time_close, "HH:mm:ss", "UTC") + "Z"
+    // Source-specific ID: replaying the same confirmed bar/settings is stable.
+    // Python uses its provider candle timestamp and a SHA256 config fingerprint.
+    string signalId = "1|" + STRATEGY_NAME + "|" + syminfo.tickerid + "|1D|" + str.tostring(time_close) + "|fee=" + jsonNumber(commissionRate) + "|slip_bps=" + jsonNumber(slippageBps)
+    string alertMessage = (
+        '{"schema_version":1,"signal_id":"' + jsonEscape(signalId) +
+        '","ticker":"' + jsonEscape(syminfo.ticker) +
+        '","market":"SET","timeframe":"1D","strategy_name":"' + STRATEGY_NAME +
+        '","timestamp":"' + timestampUtc +
+        '","entry_trigger_price":' + jsonNumber(close) +
+        ',"support_level":' + jsonNumber(supportLevel) +
+        ',"resistance_level":' + jsonNumber(resistanceLevel) +
+        ',"volume_multiple":' + jsonNumber(volumeMultiple) +
+        ',"rsi_14":' + jsonNumber(rsi14) +
+        ',"stop_loss":' + jsonNumber(stopLoss) +
+        ',"take_profit":' + jsonNumber(takeProfit) +
+        ',"reward_risk":' + jsonNumber(grossRewardRisk) +
+        ',"net_reward_risk":' + jsonNumber(netRewardRisk) +
+        ',"commission_rate":' + jsonNumber(commissionRate) +
+        ',"slippage_bps":' + jsonNumber(slippageBps) +
+        '}'
+    )
+    alert(alertMessage, alert.freq_once_per_bar_close)
