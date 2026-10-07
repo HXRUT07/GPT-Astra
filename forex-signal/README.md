@@ -47,6 +47,20 @@ Backtest จะเข้าเฉพาะแท่งถัดไปของ�
 
 ผลลัพธ์จะแยก `closed_trades`, `open_position`, `rejected_entries`, drawdown และเหตุผลการออกจากตลาด ห้ามนำ `final_equity` ไปตีความเป็นยอดเงินจริง เพราะยังไม่รวม swap, margin call, ข่าว, การหลุดราคา และกฎ execution ของ broker
 
+## รัน monitor ต่อเนื่อง
+
+คำสั่งนี้จะดึงแท่งทุก 60 วินาที, ประมวลผลเฉพาะแท่งใหม่, กันสัญญาณซ้ำด้วย `state.json` และเขียนผลลง `events.jsonl`:
+
+```bash
+uv run --project forex-signal forex-monitor \
+  --asset EURUSD --interval 15m --poll-seconds 60 \
+  --output-dir forex-signal/reports/monitor
+```
+
+กด `Ctrl+C` เพื่อหยุดได้ การเริ่มครั้งแรกจะ warm-start ที่แท่งล่าสุด ไม่ replay trigger ย้อนหลังทั้ง 60 วัน; ใช้ `--replay-history` หากต้องการ replay ข้อมูลเก่า โหมดนี้ยังเป็น paper monitor: ไม่มี LLM/news/DXY adapter, ไม่มี Telegram และไม่มี broker order ดังนั้นผล Agent จะเป็น `REVIEW` เมื่อ macro context ยังไม่ถูกส่งเข้าไป
+
+ถ้าต้องการให้เริ่มเองหลัง reboot ให้รันคำสั่งนี้ผ่าน systemd/Task Scheduler ของเครื่อง โดยใช้ user ที่มีสิทธิ์เขียน `reports/monitor` และอย่าใส่ API token ใน command line
+
 ## Review Agent
 
 มี deterministic review agent สำหรับคัดกรองสัญญาณก่อนค่อยต่อ LLM:

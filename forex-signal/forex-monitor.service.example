@@ -1,0 +1,15 @@
+[Unit]
+Description=GPT Astra Forex paper monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/workspace/GPT-Astra
+ExecStart=/workspace/GPT-Astra/forex-signal/.venv/bin/forex-monitor --asset EURUSD --interval 15m --poll-seconds 60 --output-dir /workspace/GPT-Astra/forex-signal/reports/monitor
+Restart=always
+RestartSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
