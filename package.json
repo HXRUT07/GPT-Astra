@@ -1,0 +1,22 @@
+{
+  "name": "gpt-astra-token-hud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local, clearly labeled token-budget HUD for ChatGPT conversations.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/core.test.mjs",
+    "test:browser": "node --test tests/browser.test.mjs"
+  },
+  "dependencies": {
+    "js-tiktoken": "1.0.21"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright-core": "1.58.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

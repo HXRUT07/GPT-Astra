@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "GPT Astra Token HUD",
+  "version": "0.1.0",
+  "description": "หลอดงบโทเคนมุมขวาบน นับข้อความที่เห็นใน ChatGPT แบบประมาณ ไม่ใช่ยอดคงเหลือบัญชี",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
