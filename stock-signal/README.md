@@ -28,6 +28,16 @@ uv run --project stock-signal stock-signal run \
 
 แยกดึงข้อมูลหรือรัน backtest ได้ด้วยคำสั่ง `probe` และ `backtest` รายงาน JSON จะอยู่ใน `stock-signal/reports/latest/` ข้อมูลราคาและรายงานที่สร้างจากการรันถูก ignore จาก git เพื่อไม่ฝัง dataset ที่เปลี่ยนทุกวันลงใน source
 
+วิเคราะห์จุดที่สัญญาณหลุดและรัน expanding walk-forward ได้ด้วย:
+
+```bash
+uv run --project stock-signal stock-signal analyze \
+  --data-dir stock-signal/data \
+  --report-dir stock-signal/reports/gate-walk-forward
+```
+
+คำสั่งนี้ล็อกพารามิเตอร์จาก blueprint ไว้ตลอดทุก fold ใช้ข้อมูลก่อนหน้าเป็นบริบทคำนวณ indicator และทดสอบเฉพาะช่วงเวลาถัดไป จึงไม่ได้เลือกค่าจากผลทดสอบ
+
 รันทดสอบด้วย:
 
 ```bash
@@ -39,6 +49,8 @@ uv run --project stock-signal pytest
 การทดลองวันที่ 7 ตุลาคม 2026 ได้ข้อมูลที่ผ่านการตรวจ 1,085–1,217 แท่งต่อหุ้น (ประมาณ 4–5 ปี) พบแถว OHLC ผิดช่วง 1–2 แถวต่อหุ้นและตัดออกพร้อมบันทึกเหตุผล ไม่พบ split ในช่วงที่ตรวจ
 
 สัญญาณดิบมี 54–82 ครั้งต่อหุ้น แต่สัญญาณที่ผ่านทุก gate เป็น 0 ครั้งทั้ง 5 หุ้น เพราะ volume, RSI, ระดับ target ย้อนหลัง และ net reward/risk 2:1 มักไม่ผ่านพร้อมกัน ดังนั้น backtest รอบนี้มี 0 trade และห้ามตีความเป็นผลกำไรหรือขาดทุนของกลยุทธ์
+
+การวิเคราะห์ gate วันที่ 7 ตุลาคม 2026 พบว่าหลังผ่าน trend, volume, RSI และระดับราคาย้อนหลังแล้ว สัญญาณที่เหลือทั้งหมดหลุดที่ gross reward/risk 2:1 ก่อนถึง net cost gate เช่น KBANK เหลือ 9 จาก 82 trigger ก่อน gate นี้ แต่เหลือ 0 หลัง gate; walk-forward ทุก fold จึงมี 0 trade เช่นกัน รายงานเต็มอยู่ใน `reports/gate-walk-forward-2026-10-07/`
 
 ## ข้อจำกัดที่ต้องแก้ก่อนใช้งานจริง
 

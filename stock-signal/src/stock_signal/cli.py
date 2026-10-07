@@ -13,6 +13,7 @@ import pandas as pd
 from .data import WATCHLIST, fetch_prices, load_prices, save_prices, write_json
 from .strategy import StrategyConfig, generate_signals
 from .backtest import BacktestConfig, run_backtest
+from .analysis import gate_funnel, walk_forward
 
 
 def probe(symbols: list[str], data_dir: Path, report_dir: Path, as_of: date | None) -> dict:
@@ -80,9 +81,40 @@ def backtest(symbols: list[str], data_dir: Path, report_dir: Path) -> dict:
     return report
 
 
+def analyze(symbols: list[str], data_dir: Path, report_dir: Path) -> dict:
+    strategy = StrategyConfig()
+    execution = BacktestConfig()
+    report = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "method": "sequential gate funnel plus expanding walk-forward",
+        "selection": "baseline parameters fixed from blueprint; no test-window tuning",
+        "stocks": [], "errors": [],
+    }
+    for symbol in symbols:
+        try:
+            prices = load_prices(symbol, data_dir)
+            signals = generate_signals(prices.frame, symbol, strategy)
+            stock = {
+                "symbol": symbol,
+                "data": prices.metadata,
+                "full_history_gate_funnel": gate_funnel(signals),
+                "walk_forward": walk_forward(prices.frame, symbol, strategy, execution),
+            }
+            report["stocks"].append(stock)
+            write_json(report_dir / f"{symbol}.gate-analysis.json", stock)
+            aggregate = stock["walk_forward"]["aggregate"]
+            print(f"{symbol}: full triggers={len(signals)}, full qualified={stock['full_history_gate_funnel']['qualified_count']}, "
+                  f"walk-forward trades={aggregate['closed_trades']}")
+        except Exception as exc:
+            report["errors"].append({"symbol": symbol, "error": str(exc)})
+            print(f"{symbol}: ERROR {exc}")
+    write_json(report_dir / "gate-walk-forward-summary.json", report)
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="SET daily stock research prototype")
-    parser.add_argument("command", choices=("probe", "backtest", "run"))
+    parser.add_argument("command", choices=("probe", "backtest", "analyze", "run"))
     parser.add_argument("--symbols", nargs="+", default=list(WATCHLIST))
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--report-dir", type=Path, default=Path("reports/latest"))
@@ -102,6 +134,9 @@ def main(argv: list[str] | None = None) -> int:
             symbols = [stock["symbol"] for stock in result["stocks"]]
     if args.command in ("backtest", "run"):
         result = backtest(symbols, args.data_dir, args.report_dir)
+        errors.extend(result["errors"])
+    if args.command == "analyze":
+        result = analyze(symbols, args.data_dir, args.report_dir)
         errors.extend(result["errors"])
     print(f"Reports: {args.report_dir.resolve()}")
     return 1 if errors else 0
