@@ -14,6 +14,16 @@ uv sync --project forex-signal --cache-dir /tmp/gpt-astra-uv-cache
 cd forex-signal && uv run pytest
 ```
 
+ดึงข้อมูลสาธารณะสำหรับทดลองได้ด้วยคำสั่งนี้:
+
+```bash
+uv run --project forex-signal forex-download \
+  --asset EURUSD --interval 15m --range 60d \
+  --output forex-signal/data/EURUSD_M15.csv
+```
+
+ตัวดาวน์โหลดตัดแท่งปัจจุบันที่อาจยังไม่ปิด, ตัดแถว OHLC ที่ไม่ครบหรือผิดช่วง และบันทึก metadata กับ SHA-256 ไว้ข้างไฟล์ ข้อมูล Yahoo เป็น public exploratory feed มีประวัติ intraday จำกัดและไม่เท่ากับราคา/สเปรดของ broker
+
 Python engine รับ DataFrame OHLC ที่มี `timestamp` แบบ timezone-aware และไม่ดึงข้อมูลภายนอกเอง:
 
 ```python

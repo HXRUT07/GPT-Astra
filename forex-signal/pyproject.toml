@@ -21,3 +21,4 @@ packages = ["src/forex_signal"]
 
 [project.scripts]
 forex-signal = "forex_signal.cli:main"
+forex-download = "forex_signal.data_cli:main"
