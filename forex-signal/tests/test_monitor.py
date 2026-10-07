@@ -58,3 +58,23 @@ def test_monitor_warm_start_only_reviews_latest_trigger(tmp_path, monkeypatch):
 def test_monitor_rejects_too_fast_poll():
     with pytest.raises(ValueError, match="at least 10"):
         MonitorConfig(poll_seconds=1)
+
+
+def test_monitor_can_attach_optional_consultation(tmp_path, monkeypatch):
+    candles = frame()
+    signal = {
+        "signal_id": "s1", "asset": "EURUSD", "action": "BUY",
+        "timestamp": candles.iloc[2].timestamp.isoformat(), "trigger_price": 1.1,
+        "suggested_sl": 1.09, "suggested_tp": 1.12, "reward_risk": 2,
+        "qualified": True, "rejection_reasons": [],
+    }
+    monkeypatch.setattr("forex_signal.monitor.generate_signals", lambda *args: [signal])
+
+    class FakeGemini:
+        def consult(self, signal, guard):
+            return {"final_decision": guard["decision"], "recommendation": "CAUTION"}
+
+    monitor = PaperMonitor(MonitorConfig(output_dir=tmp_path, poll_seconds=10, warm_start=False), fetcher=lambda *args, **kwargs: (candles, {"provider": "test"}), gemini=FakeGemini())
+    monitor.run_once()
+    record = json.loads((tmp_path / "events.jsonl").read_text().splitlines()[0])
+    assert record["gemini"]["final_decision"] == "REVIEW"

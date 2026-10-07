@@ -18,6 +18,7 @@ import pandas as pd
 
 from .agent import review_signal
 from .data import fetch_yahoo_intraday
+from .gemini import GeminiClient, GeminiError
 from .strategy import ForexConfig, generate_signals
 
 
@@ -49,9 +50,10 @@ def _now() -> str:
 
 
 class PaperMonitor:
-    def __init__(self, config: MonitorConfig = MonitorConfig(), *, fetcher: Fetcher = fetch_yahoo_intraday):
+    def __init__(self, config: MonitorConfig = MonitorConfig(), *, fetcher: Fetcher = fetch_yahoo_intraday, gemini: GeminiClient | None = None):
         self.config = config
         self.fetcher = fetcher
+        self.gemini = gemini
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.config.output_dir / "state.json"
         self.event_path = self.config.output_dir / "events.jsonl"
@@ -90,6 +92,11 @@ class PaperMonitor:
         for signal in new_signals:
             decision = review_signal(signal, events=[], dxy=None)
             record = {"recorded_at": _now(), "signal": signal, "agent": decision, "source": metadata}
+            if self.gemini is not None:
+                try:
+                    record["gemini"] = self.gemini.consult(signal, decision)
+                except GeminiError as exc:
+                    record["gemini_error"] = str(exc)
             self._append(self.event_path, record)
             decisions.append(decision)
         latest = frame.iloc[-1]["timestamp"].isoformat()

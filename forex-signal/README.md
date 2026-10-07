@@ -61,6 +61,20 @@ uv run --project forex-signal forex-monitor \
 
 ถ้าต้องการให้เริ่มเองหลัง reboot ให้รันคำสั่งนี้ผ่าน systemd/Task Scheduler ของเครื่อง โดยใช้ user ที่มีสิทธิ์เขียน `reports/monitor` และอย่าใส่ API token ใน command line
 
+## ต่อ Gemini แบบ opt-in
+
+ตั้งคีย์ไว้ใน environment ของ process แล้วเปิด flag `--gemini`:
+
+```bash
+export GEMINI_API_KEY="ใส่คีย์ของคุณในเครื่องเท่านั้น"
+export GEMINI_MODEL="gemini-2.5-flash"   # เปลี่ยนได้ถ้าบัญชีรองรับรุ่นอื่น
+uv run --project forex-signal forex-monitor \
+  --asset EURUSD --interval 15m --gemini \
+  --output-dir forex-signal/reports/monitor
+```
+
+Gemini จะได้รับ signal, ผล deterministic guard และ context ที่มีอยู่ เพื่อช่วยสรุป `SUPPORT/CAUTION/OPPOSE/INSUFFICIENT_DATA` แล้วบันทึกไว้ใน `events.jsonl` แต่ guard เป็นผู้ตัดสินสุดท้ายเสมอ: Gemini ไม่สามารถเปลี่ยน `PAUSE/REVIEW`, ไม่สามารถเปิด `execution_allowed` และไม่ส่งคำสั่งซื้อขาย การเรียก API อาจมีค่าใช้จ่ายและ rate limit; หากคีย์หายหรือ API ล้ม monitor จะบันทึก `gemini_error` แล้วทำงานต่อ
+
 ## Review Agent
 
 มี deterministic review agent สำหรับคัดกรองสัญญาณก่อนค่อยต่อ LLM:

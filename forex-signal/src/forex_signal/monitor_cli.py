@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .gemini import GeminiClient
 from .monitor import MonitorConfig, PaperMonitor
 
 
@@ -17,9 +18,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("reports/monitor"))
     parser.add_argument("--once", action="store_true", help="poll once and exit; useful for smoke tests")
     parser.add_argument("--replay-history", action="store_true", help="review all existing triggers on first run")
+    parser.add_argument("--gemini", action="store_true", help="consult Gemini using GEMINI_API_KEY; guard remains authoritative")
     args = parser.parse_args(argv)
     timeframe = {"15m": "M15", "30m": "M30", "60m": "H1"}[args.interval]
-    monitor = PaperMonitor(MonitorConfig(asset=args.asset.upper(), interval=args.interval, timeframe=timeframe, range_=args.range_, poll_seconds=args.poll_seconds, output_dir=args.output_dir, warm_start=not args.replay_history))
+    gemini = GeminiClient() if args.gemini else None
+    monitor = PaperMonitor(MonitorConfig(asset=args.asset.upper(), interval=args.interval, timeframe=timeframe, range_=args.range_, poll_seconds=args.poll_seconds, output_dir=args.output_dir, warm_start=not args.replay_history), gemini=gemini)
     monitor.run(once=args.once)
     return 0
 
