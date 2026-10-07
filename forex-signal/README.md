@@ -47,6 +47,22 @@ Backtest จะเข้าเฉพาะแท่งถัดไปของ�
 
 ผลลัพธ์จะแยก `closed_trades`, `open_position`, `rejected_entries`, drawdown และเหตุผลการออกจากตลาด ห้ามนำ `final_equity` ไปตีความเป็นยอดเงินจริง เพราะยังไม่รวม swap, margin call, ข่าว, การหลุดราคา และกฎ execution ของ broker
 
+## Review Agent
+
+มี deterministic review agent สำหรับคัดกรองสัญญาณก่อนค่อยต่อ LLM:
+
+```python
+from forex_signal.agent import review_signal
+
+decision = review_signal(
+    signal,
+    events=[{"currency": "USD", "impact": "HIGH", "timestamp": "2026-10-07T14:30:00Z"}],
+    dxy={"direction": "UP"},
+)
+```
+
+ผลลัพธ์เป็น `APPROVED`, `PAUSE` หรือ `REVIEW` พร้อมเหตุผล, ตรวจข่าวกล่องแดงในช่วง ±60 นาที และตรวจ DXY divergence สำหรับ EURUSD/XAUUSD คะแนนเป็น priority score ไม่ใช่เปอร์เซ็นต์ชนะ และ `execution_allowed` ถูกล็อกเป็น `false` เสมอในเฟสนี้ Agent ยังไม่ดึงข่าวเอง, ไม่เรียก LLM, ไม่ส่ง Telegram และไม่ส่งคำสั่ง broker
+
 ## สิ่งที่ต้องยืนยันก่อนใช้จริง
 
 เวลา London/New York เปลี่ยนตาม daylight saving และโบรกเกอร์แต่ละรายอาจใช้ server timezone ต่างกัน หน้าต่างคงที่ 14:00–02:00 จึงเป็น approximation ที่ต้องปรับและทดสอบกับข้อมูลจริง นอกจากนี้ราคา XAUUSD/Forex จากโบรกเกอร์มี spread, tick size, contract size และ swap ต่างกัน จึงยังคำนวณ lot 1–2% หรือ backtest รวมต้นทุนไม่ได้จาก blueprint เพียงอย่างเดียว
