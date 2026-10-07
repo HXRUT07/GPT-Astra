@@ -1,0 +1,69 @@
+//@version=6
+indicator("AI FX & Gold Signal Trigger [Webhook]", overlay = true)
+
+const string STRATEGY_NAME = "FX_EMA_ATR_SESSION_V1"
+const int WARMUP_BARS = 200
+const float STOP_ATR_MULTIPLE = 1.5
+const float TARGET_ATR_MULTIPLE = 3.0
+const string SESSION = "1400-0200:23456"
+string sessionTimezone = input.string("Asia/Bangkok", "Session timezone")
+
+if barstate.isfirst
+    if not timeframe.isminutes or (timeframe.multiplier != 15 and timeframe.multiplier != 30 and timeframe.multiplier != 60)
+        runtime.error("Use M15, M30 or H1. The signal rules do not apply to another timeframe.")
+    if syminfo.type != "forex" and syminfo.ticker != "XAUUSD"
+        runtime.error("Use a Forex pair or XAUUSD chart.")
+
+ema200 = ta.ema(close, 200)
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+rsi14 = ta.rsi(close, 14)
+atr14 = ta.atr(14)
+atrMean = ta.sma(atr14, 20)
+inSession = not na(time(timeframe.period, SESSION, sessionTimezone))
+
+trendBuy = close > ema200
+trendSell = close < ema200
+volatilityExpanded = atr14 > atrMean
+buyRsi = rsi14 >= 52.0 and rsi14 <= 68.0
+sellRsi = rsi14 >= 32.0 and rsi14 <= 48.0
+buySignal = bar_index + 1 >= WARMUP_BARS and barstate.isconfirmed and trendBuy and ta.crossover(ema20, ema50) and volatilityExpanded and buyRsi and inSession
+sellSignal = bar_index + 1 >= WARMUP_BARS and barstate.isconfirmed and trendSell and ta.crossunder(ema20, ema50) and volatilityExpanded and sellRsi and inSession
+
+buySl = close - STOP_ATR_MULTIPLE * atr14
+buyTp = close + TARGET_ATR_MULTIPLE * atr14
+sellSl = close + STOP_ATR_MULTIPLE * atr14
+sellTp = close - TARGET_ATR_MULTIPLE * atr14
+
+plot(ema20, "EMA 20", color = color.teal)
+plot(ema50, "EMA 50", color = color.orange)
+plot(ema200, "EMA 200", color = color.gray)
+plotshape(buySignal, title = "FX Buy Signal", style = shape.triangleup, location = location.belowbar, color = color.green, size = size.small)
+plotshape(sellSignal, title = "FX Sell Signal", style = shape.triangledown, location = location.abovebar, color = color.red, size = size.small)
+plot(atr14, "ATR 14", display = display.data_window)
+plot(atrMean, "ATR 20-bar mean", display = display.data_window)
+plot(rsi14, "RSI 14", display = display.data_window)
+
+jsonNumber(float value) => str.tostring(value, "0.##########")
+jsonEscape(string value) => str.replace_all(str.replace_all(value, "\\", "\\\\"), "\"", "\\\"")
+
+sendSignal(string action, float stop, float target) =>
+    string timestampLocal = str.format_time(time_close, "yyyy-MM-dd'T'HH:mm:ssXXX", sessionTimezone)
+    string payload = (
+        '{"schema_version":1,"asset":"' + jsonEscape(syminfo.ticker) +
+        '","action":"' + action +
+        '","timeframe":"' + (timeframe.multiplier == 60 ? "H1" : "M" + str.tostring(timeframe.multiplier)) +
+        '","session":"LONDON_NY_WINDOW","trigger_price":' + jsonNumber(close) +
+        ',"atr_14":' + jsonNumber(atr14) +
+        ',"suggested_sl":' + jsonNumber(stop) +
+        ',"suggested_tp":' + jsonNumber(target) +
+        ',"rsi_14":' + jsonNumber(rsi14) +
+        ',"session_timezone":"' + jsonEscape(sessionTimezone) +
+        '","timestamp":"' + timestampLocal + '"}'
+    )
+    alert(payload, alert.freq_once_per_bar_close)
+
+if buySignal
+    sendSignal("BUY", buySl, buyTp)
+if sellSignal
+    sendSignal("SELL", sellSl, sellTp)

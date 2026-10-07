@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gpt-astra-forex-signal"
+version = "0.1.0"
+description = "Deterministic M15/M30/H1 Forex and XAUUSD signal research"
+requires-python = ">=3.11"
+dependencies = ["pandas==2.2.3"]
+
+[dependency-groups]
+dev = ["pytest==8.3.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/forex_signal"]
