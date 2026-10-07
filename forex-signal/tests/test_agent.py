@@ -49,5 +49,11 @@ def test_missing_or_unqualified_signal_is_not_approved():
 def test_event_outside_window_does_not_pause():
     result = review_signal(signal(), events=[{
         "currency": "USD", "impact": "HIGH", "timestamp": "2026-10-07T16:01:00+00:00",
-    }])
+    }], dxy={"direction": "FLAT"})
     assert result["decision"] == "APPROVED"
+
+
+def test_missing_macro_context_requires_review():
+    result = review_signal(signal())
+    assert result["decision"] == "REVIEW"
+    assert {reason["code"] for reason in result["reasons"]} >= {"MISSING_CALENDAR_CONTEXT", "MISSING_DXY_CONTEXT"}

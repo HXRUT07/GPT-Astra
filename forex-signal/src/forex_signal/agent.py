@@ -69,7 +69,7 @@ def _event_matches(signal_time: pd.Timestamp, event: Mapping[str, object], asset
 def review_signal(
     signal: Mapping[str, object],
     *,
-    events: Iterable[Mapping[str, object]] = (),
+    events: Iterable[Mapping[str, object]] | None = None,
     dxy: Mapping[str, object] | None = None,
     now: datetime | None = None,
     config: AgentConfig = AgentConfig(),
@@ -117,14 +117,16 @@ def review_signal(
     invalid_event_context = []
     if signal_time is not None:
         currencies = _asset_currencies(asset)
-        for event in events:
+        for event in events or ():
             matched, detail = _event_matches(signal_time, event, currencies, config)
             if detail and matched:
                 high_events.append(detail)
             elif detail and not matched:
                 invalid_event_context.append(detail)
     checks["high_impact_events_in_window"] = high_events
-    checks["calendar_context"] = "provided" if events else "not_provided"
+    checks["calendar_context"] = "provided" if events is not None else "not_provided"
+    if events is None:
+        reasons.append({"code": "MISSING_CALENDAR_CONTEXT", "detail": "calendar data was not supplied", "severity": "REVIEW"})
     if high_events:
         reasons.append({"code": "HIGH_IMPACT_NEWS_WINDOW", "detail": high_events, "severity": "PAUSE"})
     if invalid_event_context:
@@ -135,6 +137,7 @@ def review_signal(
     dxy_direction = str((dxy or {}).get("direction", "UNKNOWN")).upper()
     if dxy is None:
         checks["dxy_context"] = "not_provided"
+        reasons.append({"code": "MISSING_DXY_CONTEXT", "detail": "DXY data was not supplied", "severity": "REVIEW"})
     else:
         checks["dxy_context"] = "provided"
         if asset in {"XAUUSD", "EURUSD"} and dxy_direction in {"UP", "DOWN"}:
@@ -146,7 +149,8 @@ def review_signal(
     score = max(0, min(10, score))
     hard_block = any(item["severity"] == "BLOCK" for item in reasons)
     pause = any(item["severity"] == "PAUSE" for item in reasons)
-    decision = "PAUSE" if pause else ("REVIEW" if hard_block or score < config.approval_score else "APPROVED")
+    review_flag = any(item["severity"] == "REVIEW" for item in reasons)
+    decision = "PAUSE" if pause else ("REVIEW" if hard_block or review_flag or score < config.approval_score else "APPROVED")
     if now is not None:
         current = _timestamp(now, "now")
         checks["signal_age_minutes"] = (current - signal_time).total_seconds() / 60.0 if signal_time is not None else None
