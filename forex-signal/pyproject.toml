@@ -18,3 +18,6 @@ addopts = "-q"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/forex_signal"]
+
+[project.scripts]
+forex-signal = "forex_signal.cli:main"

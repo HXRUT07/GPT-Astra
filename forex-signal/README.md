@@ -23,6 +23,20 @@ signals = generate_signals(frame, "XAUUSD", "M15")
 
 ทุก trigger จะมี `qualified` และ `rejection_reasons` เพื่อแยก trigger ที่โดน session/เทรนด์/ATR/RSI กรองออก ไม่ตีความคะแนนหรือ signal เป็นโอกาสชนะ
 
+## Paper backtest ระยะสั้น
+
+เมื่อมีไฟล์ CSV จาก broker/data feed ที่มีคอลัมน์ `timestamp,open,high,low,close` และ timestamp เป็น timezone-aware ให้รันได้ด้วย:
+
+```bash
+uv run --project forex-signal forex-signal candles.csv \
+  --asset EURUSD --timeframe M15 \
+  --output reports/eurusd-m15.json
+```
+
+Backtest จะเข้าเฉพาะแท่งถัดไปของสัญญาณที่ผ่าน, ใช้ spread เริ่มต้น `0.00008`, slippage 2 bps, ความเสี่ยง 1% ต่อครั้ง, leverage สูงสุด 30x และ contract 100,000 หน่วยสำหรับคู่เงินที่มี quote เป็น USD ค่าพวกนี้เป็นค่าเริ่มต้นเพื่อการวิจัย ไม่ใช่เงื่อนไขของ broker ใด หากเป็น XAUUSD ต้องตั้ง `contract_units`, `spread_price`, `quote_to_account`, commission และ leverage ตามสัญญาจริงผ่าน Python API ก่อนเชื่อถือผล
+
+ผลลัพธ์จะแยก `closed_trades`, `open_position`, `rejected_entries`, drawdown และเหตุผลการออกจากตลาด ห้ามนำ `final_equity` ไปตีความเป็นยอดเงินจริง เพราะยังไม่รวม swap, margin call, ข่าว, การหลุดราคา และกฎ execution ของ broker
+
 ## สิ่งที่ต้องยืนยันก่อนใช้จริง
 
 เวลา London/New York เปลี่ยนตาม daylight saving และโบรกเกอร์แต่ละรายอาจใช้ server timezone ต่างกัน หน้าต่างคงที่ 14:00–02:00 จึงเป็น approximation ที่ต้องปรับและทดสอบกับข้อมูลจริง นอกจากนี้ราคา XAUUSD/Forex จากโบรกเกอร์มี spread, tick size, contract size และ swap ต่างกัน จึงยังคำนวณ lot 1–2% หรือ backtest รวมต้นทุนไม่ได้จาก blueprint เพียงอย่างเดียว
