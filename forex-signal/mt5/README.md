@@ -4,6 +4,18 @@
 
 ## Local setup
 
+Use bridge version 1.1 or later. Version 1.0 called `ArraySetAsSeries` on
+a static two-element array; MT5 ignores that flag on static arrays, so index
+1 selected the forming candle instead of the completed candle. Version 1.1
+requests exactly one candle at shift 1 and reads index 0. Compile this version
+in MetaEditor before collecting new data. This environment cannot compile MQL5.
+
+Preserve databases collected with version 1.0 as unverified legacy data. Their
+OHLC values may have been captured before the candle closed, so do not mix them
+with the corrected feed for signal evaluation or backtests. Start version 1.1
+with a separate database and monitor output directory, or rebuild the affected
+history from verified completed broker candles. Do not delete the legacy data.
+
 1. On the computer where FBS MT5 is installed, set a random token in the shell environment:
 
    ```bash

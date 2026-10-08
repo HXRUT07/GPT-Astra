@@ -3,7 +3,7 @@
 //| Sends completed OHLC bars only. It contains no trade functions.   |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.0"
+#property version   "1.1"
 
 input string          InpEndpoint      = "http://127.0.0.1:8787/v1/mt5/candle";
 input string          InpBearerToken   = "CHANGE_ME_LONG_RANDOM_TOKEN";
@@ -53,11 +53,11 @@ void OnTimer()
 
 void SendClosedBar()
   {
-   MqlRates rates[2];
-   ArraySetAsSeries(rates,true);
-   if(CopyRates(_Symbol,InpTimeframe,0,2,rates) < 2)
+   // Request only shift 1 so a static array never selects the forming bar.
+   MqlRates rates[1];
+   if(CopyRates(_Symbol,InpTimeframe,1,1,rates) != 1)
       return;
-   datetime closed_time = rates[1].time;
+   datetime closed_time = rates[0].time;
    if(closed_time <= g_last_closed_bar)
       return;
 
@@ -76,11 +76,11 @@ void SendClosedBar()
    payload += "\"timeframe\":\"" + timeframe + "\",";
    payload += "\"timestamp_epoch\":" + IntegerToString((int)closed_time) + ",";
    payload += "\"server_time\":\"" + TimeToString(closed_time,TIME_DATE|TIME_SECONDS) + "\",";
-   payload += "\"open\":" + DoubleToString(rates[1].open,digits) + ",";
-   payload += "\"high\":" + DoubleToString(rates[1].high,digits) + ",";
-   payload += "\"low\":" + DoubleToString(rates[1].low,digits) + ",";
-   payload += "\"close\":" + DoubleToString(rates[1].close,digits) + ",";
-   payload += "\"tick_volume\":" + IntegerToString((int)rates[1].tick_volume) + ",";
+   payload += "\"open\":" + DoubleToString(rates[0].open,digits) + ",";
+   payload += "\"high\":" + DoubleToString(rates[0].high,digits) + ",";
+   payload += "\"low\":" + DoubleToString(rates[0].low,digits) + ",";
+   payload += "\"close\":" + DoubleToString(rates[0].close,digits) + ",";
+   payload += "\"tick_volume\":" + IntegerToString((int)rates[0].tick_volume) + ",";
    payload += "\"bid\":" + DoubleToString(tick.bid,digits) + ",";
    payload += "\"ask\":" + DoubleToString(tick.ask,digits) + ",";
    payload += "\"spread\":" + DoubleToString(spread,digits) + ",";
