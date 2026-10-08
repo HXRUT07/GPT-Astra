@@ -4,7 +4,7 @@
 
 ## Local setup
 
-Use bridge version 1.1 or later. Version 1.0 called `ArraySetAsSeries` on
+Use bridge version 1.2 or later. Version 1.0 called `ArraySetAsSeries` on
 a static two-element array; MT5 ignores that flag on static arrays, so index
 1 selected the forming candle instead of the completed candle. Version 1.1
 requests exactly one candle at shift 1 and reads index 0. Compile this version
@@ -12,9 +12,20 @@ in MetaEditor before collecting new data. This environment cannot compile MQL5.
 
 Preserve databases collected with version 1.0 as unverified legacy data. Their
 OHLC values may have been captured before the candle closed, so do not mix them
-with the corrected feed for signal evaluation or backtests. Start version 1.1
+with the corrected feed for signal evaluation or backtests. Start the current version
 with a separate database and monitor output directory, or rebuild the affected
 history from verified completed broker candles. Do not delete the legacy data.
+
+Versions 1.0 and 1.1 also sent the broker-local candle time as a UTC epoch. On
+the user's live FBS feed, a candle labeled 11:00 UTC arrived at 08:17 UTC;
+the broker was using UTC+3. Version 1.2 subtracts the current live
+`TimeTradeServer() - TimeGMT()` offset, rounded to the nearest minute, before
+sending `timestamp_epoch`. It requires an accurately synchronized Windows
+clock and a connected, live MT5 terminal. This conversion is for the latest
+completed live candle; do not use today's offset to import historical candles
+across broker timezone or daylight-saving transitions. Start a separate 1.2
+database and monitor output directory so incorrectly timed legacy rows are
+not included in session filters. Retain the legacy databases for audit.
 
 1. On the computer where FBS MT5 is installed, set a random token in the shell environment:
 
@@ -34,7 +45,7 @@ history from verified completed broker candles. Do not delete the legacy data.
 
 3. In MT5, open `Tools → Options → Expert Advisors → Allow WebRequest for listed URL` and add exactly `http://127.0.0.1:8787`.
 
-4. Open MetaEditor, compile the EA, attach it to the FBS symbol chart (start with `EURUSD`, M15), and set `InpBearerToken` to the same token. The EA sends shift-1, completed bars on a timer. MT5 server time is retained for audit, but the epoch timestamp is normalized to UTC by the gateway.
+4. Open MetaEditor, compile the EA, attach it to the FBS symbol chart (start with `EURUSD`, M15), and set `InpBearerToken` to the same token. The EA sends shift-1, completed bars on a timer and converts their broker-local opening time to UTC before sending it. It includes `server_time` in the HTTP request; the current gateway stores the normalized UTC timestamp, not that original field. Verify the stored timestamp against the live server/GMT offset before using session filters.
 
 5. Export received candles for the existing strategy:
 

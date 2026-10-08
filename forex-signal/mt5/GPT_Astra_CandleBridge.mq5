@@ -3,7 +3,7 @@
 //| Sends completed OHLC bars only. It contains no trade functions.   |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.1"
+#property version   "1.2"
 
 input string          InpEndpoint      = "http://127.0.0.1:8787/v1/mt5/candle";
 input string          InpBearerToken   = "CHANGE_ME_LONG_RANDOM_TOKEN";
@@ -74,7 +74,8 @@ void SendClosedBar()
    string payload = "{";
    payload += "\"symbol\":\"" + _Symbol + "\",";
    payload += "\"timeframe\":\"" + timeframe + "\",";
-   payload += "\"timestamp_epoch\":" + IntegerToString((int)closed_time) + ",";
+   // MT5 bar times use broker time. Round the live server/GMT offset to minutes.
+   payload += "\"timestamp_epoch\":" + IntegerToString((long)closed_time - (long)MathRound((double)(TimeTradeServer() - TimeGMT()) / 60.0) * 60) + ",";
    payload += "\"server_time\":\"" + TimeToString(closed_time,TIME_DATE|TIME_SECONDS) + "\",";
    payload += "\"open\":" + DoubleToString(rates[0].open,digits) + ",";
    payload += "\"high\":" + DoubleToString(rates[0].high,digits) + ",";
